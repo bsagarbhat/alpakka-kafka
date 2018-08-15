@@ -24,6 +24,7 @@ object ConsumerSettings {
    * Create settings from the default configuration
    * `akka.kafka.consumer`.
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * using default kafkaConsumerSupplier
    */
   def apply[K, V](
       system: ActorSystem,
@@ -31,18 +32,49 @@ object ConsumerSettings {
       valueDeserializer: Option[Deserializer[V]]
   ): ConsumerSettings[K, V] = {
     val config = system.settings.config.getConfig("akka.kafka.consumer")
-    apply(config, keyDeserializer, valueDeserializer)
+    apply(config, keyDeserializer, valueDeserializer, new DefaultKafkaConsumerSupplier)
+  }
+
+  /**
+   * Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * consumerSupplier must be passed explicitly
+   */
+  def apply[K, V](
+      system: ActorSystem,
+      keyDeserializer: Option[Deserializer[K]],
+      valueDeserializer: Option[Deserializer[V]],
+      consumerClientFactory: KafkaConsumerSupplier
+  ): ConsumerSettings[K, V] = {
+    val config = system.settings.config.getConfig("akka.kafka.consumer")
+    apply(config, keyDeserializer, valueDeserializer, consumerClientFactory)
+  }
+  /**
+   * Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * using default kafkaConsumerSupplier
+   */
+  def apply[K, V](
+      config: Config,
+      keyDeserializer: Option[Deserializer[K]],
+      valueDeserializer: Option[Deserializer[V]],
+  ): ConsumerSettings[K, V] = {
+    apply(config, keyDeserializer, valueDeserializer, new DefaultKafkaConsumerSupplier)
   }
 
   /**
    * Create settings from a configuration with the same layout as
    * the default configuration `akka.kafka.consumer`.
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * consumerSupplier must be passed explicitly
    */
   def apply[K, V](
       config: Config,
       keyDeserializer: Option[Deserializer[K]],
-      valueDeserializer: Option[Deserializer[V]]
+      valueDeserializer: Option[Deserializer[V]],
+      consumerClientSupplier: KafkaConsumerSupplier
   ): ConsumerSettings[K, V] = {
     val properties = ConfigSettings.parseKafkaClientsProperties(config.getConfig("kafka-clients"))
     require(
@@ -82,7 +114,8 @@ object ConsumerSettings {
       dispatcher,
       commitTimeWarning,
       wakeupDebug,
-      waitClosePartition
+      waitClosePartition,
+      consumerClientSupplier
     )
   }
 
@@ -90,73 +123,160 @@ object ConsumerSettings {
    * Create settings from the default configuration
    * `akka.kafka.consumer`.
    * Key and value serializer must be passed explicitly.
+   * consumerSupplier must be passed explicitly
+   */
+  def apply[K, V](
+      system: ActorSystem,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V],
+      consumerClientFactory: KafkaConsumerSupplier
+  ): ConsumerSettings[K, V] =
+    apply(system, Option(keyDeserializer), Option(valueDeserializer), consumerClientFactory)
+
+
+  /**
+   * Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key and value serializer must be passed explicitly.
+   * using default kafkaConsumerSupplier
    */
   def apply[K, V](
       system: ActorSystem,
       keyDeserializer: Deserializer[K],
       valueDeserializer: Deserializer[V]
   ): ConsumerSettings[K, V] =
-    apply(system, Option(keyDeserializer), Option(valueDeserializer))
+    apply(system, Option(keyDeserializer), Option(valueDeserializer), new DefaultKafkaConsumerSupplier)
 
   /**
    * Create settings from a configuration with the same layout as
    * the default configuration `akka.kafka.consumer`.
    * Key and value serializer must be passed explicitly.
+   * consumerSupplier must be passed explicitly
    */
   def apply[K, V](
       config: Config,
       keyDeserializer: Deserializer[K],
-      valueDeserializer: Deserializer[V]
+      valueDeserializer: Deserializer[V],
+      consumerSupplier: KafkaConsumerSupplier
   ): ConsumerSettings[K, V] =
-    apply(config, Option(keyDeserializer), Option(valueDeserializer))
+    apply(config, Option(keyDeserializer), Option(valueDeserializer), consumerSupplier)
+
+  /**
+   * Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.consumer`.
+   * Key and value serializer must be passed explicitly.
+   * using default kafkaConsumerSupplier
+   */
+  def apply[K, V](
+      config: Config,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V],
+  ): ConsumerSettings[K, V] =
+    apply(config, Option(keyDeserializer), Option(valueDeserializer), new DefaultKafkaConsumerSupplier)
 
   /**
    * Java API: Create settings from the default configuration
    * `akka.kafka.consumer`.
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * using default kafkaConsumerSupplier
    */
   def create[K, V](
       system: ActorSystem,
       keyDeserializer: Optional[Deserializer[K]],
       valueDeserializer: Optional[Deserializer[V]]
+  ): ConsumerSettings[K, V] = create(system, keyDeserializer, valueDeserializer, new DefaultKafkaConsumerSupplier)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * consumerSupplier must be passed explicitly
+   */
+  def create[K, V](
+      system: ActorSystem,
+      keyDeserializer: Optional[Deserializer[K]],
+      valueDeserializer: Optional[Deserializer[V]],
+      consumer: KafkaConsumerSupplier
   ): ConsumerSettings[K, V] =
-    apply(system, keyDeserializer.asScala, valueDeserializer.asScala)
+    apply(system, keyDeserializer.asScala, valueDeserializer.asScala, consumer)
 
   /**
    * Java API: Create settings from a configuration with the same layout as
    * the default configuration `akka.kafka.consumer`.
    * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * using default kafkaConsumerSupplier
    */
   def create[K, V](
       config: Config,
       keyDeserializer: Optional[Deserializer[K]],
-      valueDeserializer: Optional[Deserializer[V]]
+      valueDeserializer: Optional[Deserializer[V]],
+  ): ConsumerSettings[K, V] = create(config, keyDeserializer, valueDeserializer, new DefaultKafkaConsumerSupplier)
+
+  /**
+   * Java API: Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.consumer`.
+   * Key or value deserializer can be passed explicitly or retrieved from configuration.
+   * consumerSupplier must be passed explicitly
+   */
+  def create[K, V](
+      config: Config,
+      keyDeserializer: Optional[Deserializer[K]],
+      valueDeserializer: Optional[Deserializer[V]],
+      consumerSupplier: KafkaConsumerSupplier
   ): ConsumerSettings[K, V] =
-    apply(config, keyDeserializer.asScala, valueDeserializer.asScala)
+    apply(config, keyDeserializer.asScala, valueDeserializer.asScala, consumerSupplier)
 
   /**
    * Java API: Create settings from the default configuration
    * `akka.kafka.consumer`.
    * Key and value serializer must be passed explicitly.
+   * using default kafkaConsumerSupplier
    */
   def create[K, V](
       system: ActorSystem,
       keyDeserializer: Deserializer[K],
       valueDeserializer: Deserializer[V]
+  ): ConsumerSettings[K, V] = create(system, keyDeserializer, valueDeserializer, new DefaultKafkaConsumerSupplier)
+
+  /**
+   * Java API: Create settings from the default configuration
+   * `akka.kafka.consumer`.
+   * Key and value serializer must be passed explicitly.
+   * using default kafkaConsumerSupplier
+   */
+  def create[K, V](
+      system: ActorSystem,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V],
+      consumer: KafkaConsumerSupplier
   ): ConsumerSettings[K, V] =
-    apply(system, keyDeserializer, valueDeserializer)
+    apply(system, keyDeserializer, valueDeserializer, consumer)
 
   /**
    * Java API: Create settings from a configuration with the same layout as
    * the default configuration `akka.kafka.consumer`.
    * Key and value serializer must be passed explicitly.
+   * using default kafkaConsumerSupplier
    */
   def create[K, V](
       config: Config,
       keyDeserializer: Deserializer[K],
       valueDeserializer: Deserializer[V]
+  ): ConsumerSettings[K, V] = create(config, keyDeserializer, valueDeserializer, new DefaultKafkaConsumerSupplier)
+
+  /**
+   * Java API: Create settings from a configuration with the same layout as
+   * the default configuration `akka.kafka.consumer`.
+   * Key and value serializer must be passed explicitly.
+   * consumerSupplier must be passed explicitly
+   */
+  def create[K, V](
+      config: Config,
+      keyDeserializer: Deserializer[K],
+      valueDeserializer: Deserializer[V],
+      consumer: KafkaConsumerSupplier
   ): ConsumerSettings[K, V] =
-    apply(config, keyDeserializer, valueDeserializer)
+    apply(config, keyDeserializer, valueDeserializer, consumer)
 }
 
 /**
@@ -180,7 +300,8 @@ class ConsumerSettings[K, V](
     val dispatcher: String,
     val commitTimeWarning: FiniteDuration = 1.second,
     val wakeupDebug: Boolean = true,
-    val waitClosePartition: FiniteDuration
+    val waitClosePartition: FiniteDuration,
+    val consumerSupplier: KafkaConsumerSupplier
 ) {
 
   def withBootstrapServers(bootstrapServers: String): ConsumerSettings[K, V] =
@@ -276,7 +397,8 @@ class ConsumerSettings[K, V](
       commitRefreshInterval: Duration = commitRefreshInterval,
       dispatcher: String = dispatcher,
       wakeupDebug: Boolean = wakeupDebug,
-      waitClosePartition: FiniteDuration = waitClosePartition
+      waitClosePartition: FiniteDuration = waitClosePartition,
+      consumerClientFactory: KafkaConsumerSupplier = consumerSupplier
   ): ConsumerSettings[K, V] =
     new ConsumerSettings[K, V](
       properties,
@@ -293,7 +415,8 @@ class ConsumerSettings[K, V](
       dispatcher,
       commitTimeWarning,
       wakeupDebug,
-      waitClosePartition
+      waitClosePartition,
+      consumerClientFactory
     )
 
   /**
@@ -303,6 +426,6 @@ class ConsumerSettings[K, V](
     val javaProps = properties.foldLeft(new java.util.Properties) {
       case (p, (k, v)) => p.put(k, v); p
     }
-    new KafkaConsumer[K, V](javaProps, keyDeserializerOpt.orNull, valueDeserializerOpt.orNull)
+    consumerSupplier.get(javaProps, keyDeserializerOpt.orNull, valueDeserializerOpt.orNull)
   }
 }

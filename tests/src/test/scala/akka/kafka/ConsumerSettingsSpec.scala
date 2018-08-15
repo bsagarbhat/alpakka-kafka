@@ -5,8 +5,11 @@
 
 package akka.kafka
 
+import java.util.Properties
+
 import com.typesafe.config.ConfigFactory
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, Deserializer, StringDeserializer}
 import org.scalatest._
 
 class ConsumerSettingsSpec extends WordSpecLike with Matchers {
@@ -65,6 +68,24 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers {
         .getConfig("akka.kafka.consumer")
       val settings = ConsumerSettings(conf, Some(new ByteArrayDeserializer), None)
       settings.getProperty("bootstrap.servers") should ===("localhost:9092")
+    }
+
+    "should have default client supplier when not passed explicitly" in {
+      val conf = ConfigFactory.parseString("""
+        akka.kafka.consumer.kafka-clients.bootstrap.servers = "localhost:9092"
+        akka.kafka.consumer.kafka-clients.parallelism = 1
+        """).withFallback(ConfigFactory.load()).getConfig("akka.kafka.consumer")
+      val settings = ConsumerSettings(conf, new ByteArrayDeserializer, new StringDeserializer)
+      settings.consumerSupplier shouldBe a [DefaultKafkaConsumerSupplier]
+    }
+
+    "should have client supplier when passed explicitly" in {
+      val conf = ConfigFactory.parseString("""
+        akka.kafka.consumer.kafka-clients.bootstrap.servers = "localhost:9092"
+        akka.kafka.consumer.kafka-clients.parallelism = 1
+        """).withFallback(ConfigFactory.load()).getConfig("akka.kafka.consumer")
+      val settings = ConsumerSettings(conf, new ByteArrayDeserializer, new StringDeserializer, new TestKafkaConsumerSupplier)
+      settings.consumerSupplier shouldBe a [TestKafkaConsumerSupplier]
     }
 
     "handle value deserializer passed as args config and key deserializer defined in config" in {
@@ -184,6 +205,11 @@ class ConsumerSettingsSpec extends WordSpecLike with Matchers {
       )
     }
 
+  }
+  class TestKafkaConsumerSupplier extends KafkaConsumerSupplier {
+    def get[K, V](properties: Properties, keyDeserializer: Deserializer[K], valueDeserializer: Deserializer[V]): KafkaConsumer[K, V] = {
+      new KafkaConsumer[K, V](properties, keyDeserializer, valueDeserializer)
+    }
   }
 
 }

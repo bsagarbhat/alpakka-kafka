@@ -13,7 +13,7 @@ import java.util.{List => JList, Map => JMap, Set => JSet}
 import akka.{Done, NotUsed}
 import akka.actor.ActorSystem
 import akka.kafka.ConsumerMessage._
-import akka.kafka.{CommitTimeoutException, ConsumerSettings, Subscriptions}
+import akka.kafka.{CommitTimeoutException, ConsumerSettings, KafkaConsumerSupplier, Subscriptions}
 import akka.kafka.scaladsl.Consumer
 import Consumer.Control
 import akka.stream._
@@ -32,6 +32,7 @@ import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 import org.mockito.verification.VerificationMode
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
@@ -102,7 +103,8 @@ class ConsumerTest(_system: ActorSystem)
       "akka.kafka.default-dispatcher",
       1.second,
       true,
-      100.millis
+      100.millis,
+      Mockito.mock(classOf[KafkaConsumerSupplier])
     ) {
       override def createKafkaConsumer(): Consumer[K, V] =
         mock
